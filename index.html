@@ -1,0 +1,129 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta
+        name="description"
+        content="Catálogo de itens e drops da guild no Huntera."
+    >
+
+    <title>Guild Bank List</title>
+
+    <link rel="stylesheet" href="styles.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="script.js" defer></script>
+</head>
+
+<body>
+    <header class="topbar">
+        <div class="container topbar-content">
+            <a class="brand" href="#" aria-label="Huntera Guild Bank">
+                <span class="brand-icon">L</span>
+
+                <span class="brand-text">
+                    <strong>LEITEIROS</strong>
+                    <small>FODA-SE OS ESTADOS UNIDOS!!</small>
+                </span>
+            </a>
+
+            <span class="connection-status" id="connection-status">
+                <span class="status-dot"></span>
+                <span id="connection-text">Conectando...</span>
+            </span>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="hero">
+            <div class="hero-content">
+                <span class="eyebrow">BANCO DE RECURSOS DA GUILD</span>
+
+                <h1>Banco de <span>Itens</span></h1>
+
+                <p>
+                    Consulte os drops das criaturas e encontre os recursos
+                    disponíveis no catálogo da guild.
+                </p>
+            </div>
+
+            <div class="hero-decoration" aria-hidden="true">
+                <span class="rune rune-one">✦</span>
+                <span class="rune rune-two">◆</span>
+                <span class="rune rune-three">✧</span>
+            </div>
+        </section>
+
+        <section class="catalog-section">
+            <div class="section-heading">
+                <div>
+                    <h2>Catálogo de recursos</h2>
+                    <p>Pesquise itens e descubra suas criaturas de origem.</p>
+                </div>
+
+                <div class="item-counter" aria-live="polite">
+                    <strong id="item-count">0</strong>
+                    <span>itens</span>
+                </div>
+            </div>
+
+            <div class="filters">
+                <label class="search-box">
+                    <span class="search-icon" aria-hidden="true">⌕</span>
+
+                    <input
+                        type="search"
+                        id="search-input"
+                        placeholder="Buscar item..."
+                        autocomplete="off"
+                        aria-label="Buscar item pelo nome"
+                    >
+
+                    <kbd>⌕</kbd>
+                </label>
+
+                <label class="monster-filter">
+                    <span class="sr-only">Filtrar por criatura</span>
+
+                    <select id="monster-filter">
+                        <option value="">Todas as criaturas</option>
+                    </select>
+                </label>
+            </div>
+
+            <div
+                id="message"
+                class="message"
+                role="status"
+                aria-live="polite"
+            >
+                Carregando catálogo...
+            </div>
+
+            <div id="item-grid" class="item-grid"></div>
+
+            <div id="empty-state" class="empty-state" hidden>
+                <div class="empty-icon" aria-hidden="true">⌕</div>
+                <h3>Nenhum item encontrado</h3>
+                <p>
+                    Tente outro nome ou selecione uma criatura diferente.
+                </p>
+
+                <button id="clear-filters" class="secondary-button">
+                    Limpar filtros
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <span>Foda-se o Estado Genocida de ISRAEL!!</span>
+            <span>Fanly</span>
+        </div>
+    </footer>
+</body>
+</html>
