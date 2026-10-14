@@ -689,3 +689,182 @@ a:focus-visible {
         transition: none !important;
     }
 }
+
+
+/* Filtro de múltiplas criaturas */
+.monster-filter {
+    position: relative;
+    display: block;
+    height: 46px;
+    min-width: 0;
+    z-index: 5;
+}
+
+.monster-filter-button {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 13px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--text);
+    text-align: left;
+}
+
+.monster-filter-button:hover {
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.monster-filter-button #monster-filter-summary {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.filter-chevron {
+    flex: 0 0 auto;
+    color: var(--gold);
+    transition: transform 160ms ease;
+}
+
+.monster-filter-button[aria-expanded="true"] .filter-chevron {
+    transform: rotate(180deg);
+}
+
+.monster-filter-options {
+    position: absolute;
+    top: calc(100% + 7px);
+    right: 0;
+    width: min(340px, calc(100vw - 32px));
+    max-height: 360px;
+    overflow: hidden;
+    border: 1px solid #484333;
+    border-radius: 10px;
+    background: #191a21;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42);
+}
+
+.monster-filter-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 13px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.monster-filter-actions button {
+    padding: 4px 7px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--surface-hover);
+    color: var(--gold-light);
+    font-size: 11px;
+    text-transform: none;
+}
+
+.monster-options-list {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 5px;
+}
+
+.monster-option {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 9px;
+    border-radius: 6px;
+    color: #d8d8df;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.monster-option:hover {
+    background: #272832;
+}
+
+.monster-option input {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    flex: 0 0 auto;
+    accent-color: var(--gold);
+}
+
+/* Lista de drops compacta e expansível */
+.monster-list-wrap {
+    position: relative;
+    min-width: 0;
+}
+
+.monster-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 5px;
+}
+
+.monster-expand-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 25px;
+    margin-top: 5px;
+    padding: 4px 7px;
+    border: 1px solid #665638;
+    border-radius: 5px;
+    background: rgba(215, 182, 109, 0.08);
+    color: var(--gold-light);
+    font-size: 10px;
+    line-height: 1.4;
+    transition: background 150ms ease, border-color 150ms ease;
+}
+
+.monster-expand-button:hover {
+    border-color: var(--gold);
+    background: rgba(215, 182, 109, 0.15);
+}
+
+.monster-list-expanded {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding-top: 2px;
+}
+
+.monster-list-expanded[hidden],
+.monster-list[hidden] {
+    display: none !important;
+}
+
+.item-name-link {
+    cursor: pointer;
+}
+
+.item-name-link:hover {
+    color: var(--gold-light);
+}
+
+@media (max-width: 760px) {
+    .monster-filter-options {
+        left: 0;
+        right: auto;
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .filter-chevron {
+        transition: none;
+    }
+}

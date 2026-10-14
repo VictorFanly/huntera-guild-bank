@@ -85,13 +85,33 @@
                     <kbd>⌕</kbd>
                 </label>
 
-                <label class="monster-filter">
-                    <span class="sr-only">Filtrar por criatura</span>
-
-                    <select id="monster-filter">
-                        <option value="">Todas as criaturas</option>
-                    </select>
-                </label>
+                <div class="monster-filter" id="monster-filter">
+                    <span class="sr-only" id="monster-filter-label">Filtrar por criaturas</span>
+                    <button
+                        type="button"
+                        class="monster-filter-button"
+                        id="monster-filter-button"
+                        aria-haspopup="true"
+                        aria-expanded="false"
+                        aria-controls="monster-filter-options"
+                    >
+                        <span id="monster-filter-summary">Todas as criaturas</span>
+                        <span class="filter-chevron" aria-hidden="true">▾</span>
+                    </button>
+                    <div
+                        class="monster-filter-options"
+                        id="monster-filter-options"
+                        role="group"
+                        aria-labelledby="monster-filter-label"
+                        hidden
+                    >
+                        <div class="monster-filter-actions">
+                            <span>Selecionar criaturas</span>
+                            <button type="button" id="clear-monster-selection">Limpar</button>
+                        </div>
+                        <div class="monster-options-list" id="monster-options-list"></div>
+                    </div>
+                </div>
             </div>
 
             <div

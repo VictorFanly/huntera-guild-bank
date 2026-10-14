@@ -12,6 +12,11 @@ const elementos = {
     connectionText: document.getElementById("connection-text"),
     searchInput: document.getElementById("search-input"),
     monsterFilter: document.getElementById("monster-filter"),
+    monsterFilterButton: document.getElementById("monster-filter-button"),
+    monsterFilterOptions: document.getElementById("monster-filter-options"),
+    monsterFilterSummary: document.getElementById("monster-filter-summary"),
+    monsterOptionsList: document.getElementById("monster-options-list"),
+    clearMonsterSelection: document.getElementById("clear-monster-selection"),
     itemGrid: document.getElementById("item-grid"),
     itemCount: document.getElementById("item-count"),
     message: document.getElementById("message"),
@@ -20,8 +25,12 @@ const elementos = {
 };
 
 let itens = [];
+let monstrosAtivos = [];
 let carregando = true;
 let erroCarregamento = false;
+
+const monstrosSelecionados = new Set();
+const LIMITE_MONSTROS_VISIVEIS = 3;
 
 function normalizar(texto) {
     return String(texto ?? "")
@@ -32,10 +41,7 @@ function normalizar(texto) {
 }
 
 function definirConexao(estado, mensagem) {
-    elementos.connectionStatus.classList.remove(
-        "online",
-        "offline"
-    );
+    elementos.connectionStatus.classList.remove("online", "offline");
 
     if (estado === "online") {
         elementos.connectionStatus.classList.add("online");
@@ -59,16 +65,16 @@ function mostrarMensagem(texto, tipo = "") {
     elementos.message.hidden = !texto;
 }
 
+
 function obterMonstros(item) {
-    const relacoes = Array.isArray(item.item_monsters)
-        ? item.item_monsters
-        : [];
+    const relacoes = item.item_monsters || [];
 
     return relacoes
-        .map((relacao) => relacao.monsters)
-        .filter((monstro) => monstro && monstro.name)
+        .map(relacao => relacao.monsters)
+        .filter(monstro => monstro && monstro.visible === true)
         .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 }
+
 
 async function carregarItens() {
     carregando = true;
@@ -79,32 +85,48 @@ async function carregarItens() {
     elementos.itemGrid.replaceChildren();
 
     try {
-        const { data, error } = await supabaseClient
-            .from("items")
-            .select(`
-                id,
-                name,
-                image_url,
-                source_url,
-                item_monsters (
-                    monster_id,
-                    monsters (
-                        id,
-                        name
+        const [respostaItens, respostaMonstros] = await Promise.all([
+            supabaseClient
+                .from("items")
+                .select(`
+                    id,
+                    name,
+                    image_url,
+                    source_url,
+                    item_monsters (
+                        monster_id,
+                        monsters (
+                            id,
+                            name,
+                            visible
+                        )
                     )
-                )
-            `)
-            .eq("visible", true)
-            .order("name", { ascending: true })
-            .limit(1000);
+                `)
+                .eq("visible", true)
+                .order("name", { ascending: true })
+                .limit(1000),
 
-        if (error) {
-            throw error;
+            supabaseClient
+                .from("monsters")
+                .select("id, name")
+                .eq("visible", true)
+                .order("name", { ascending: true })
+                .limit(2000)
+        ]);
+
+        if (respostaItens.error) {
+            throw respostaItens.error;
         }
 
-        itens = data ?? [];
+        if (respostaMonstros.error) {
+            throw respostaMonstros.error;
+        }
+
+        itens = respostaItens.data ?? [];
+        monstrosAtivos = respostaMonstros.data ?? [];
 
         preencherFiltroMonstros();
+
         definirConexao("online", "Conectado");
 
         carregando = false;
@@ -114,6 +136,7 @@ async function carregarItens() {
         console.error("Erro ao carregar catálogo:", erro);
 
         itens = [];
+        monstrosAtivos = [];
         carregando = false;
         erroCarregamento = true;
 
@@ -130,44 +153,98 @@ async function carregarItens() {
     }
 }
 
+function obterTodosMonstros() {
+    // A lista vem da tabela monsters e contém somente visible = true.
+    // Um monstro ativo pode aparecer no filtro mesmo antes de receber drops.
+    return [...monstrosAtivos].sort((a, b) =>
+        a.name.localeCompare(b.name, "pt-BR")
+    );
+}
+
 function preencherFiltroMonstros() {
-    const valorAnterior = elementos.monsterFilter.value;
+    const monstros = obterTodosMonstros();
 
-    const monstros = new Map();
+    const idsExistentes = new Set(
+        monstros.map((monstro) => String(monstro.id))
+    );
 
-    for (const item of itens) {
-        for (const monstro of obterMonstros(item)) {
-            monstros.set(String(monstro.id), monstro);
+    // Remove seleções de monstros que deixaram de estar ativos.
+    for (const id of monstrosSelecionados) {
+        if (!idsExistentes.has(id)) {
+            monstrosSelecionados.delete(id);
         }
     }
 
-    elementos.monsterFilter.replaceChildren();
+    elementos.monsterOptionsList.replaceChildren();
 
-    const opcaoPadrao = document.createElement("option");
-    opcaoPadrao.value = "";
-    opcaoPadrao.textContent = "Todas as criaturas";
+    for (const monstro of monstros) {
+        const id = String(monstro.id);
 
-    elementos.monsterFilter.appendChild(opcaoPadrao);
+        const label = document.createElement("label");
+        label.className = "monster-option";
 
-    const lista = [...monstros.values()].sort((a, b) =>
-        a.name.localeCompare(b.name, "pt-BR")
-    );
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.value = id;
+        checkbox.checked = monstrosSelecionados.has(id);
 
-    for (const monstro of lista) {
-        const opcao = document.createElement("option");
+        checkbox.addEventListener("change", () => {
+            if (checkbox.checked) {
+                monstrosSelecionados.add(id);
+            } else {
+                monstrosSelecionados.delete(id);
+            }
 
-        opcao.value = String(monstro.id);
-        opcao.textContent = monstro.name;
+            atualizarResumoFiltro();
+            renderizarItens();
+        });
 
-        elementos.monsterFilter.appendChild(opcao);
+        const nome = document.createElement("span");
+        nome.textContent = monstro.name;
+
+        label.append(checkbox, nome);
+        elementos.monsterOptionsList.appendChild(label);
     }
 
-    const aindaExiste = [...elementos.monsterFilter.options]
-        .some((opcao) => opcao.value === valorAnterior);
+    atualizarResumoFiltro();
+}
 
-    elementos.monsterFilter.value = aindaExiste
-        ? valorAnterior
-        : "";
+function atualizarResumoFiltro() {
+    const total = monstrosSelecionados.size;
+
+    if (total === 0) {
+        elementos.monsterFilterSummary.textContent = "Todas as criaturas";
+
+    } else if (total === 1) {
+        const id = [...monstrosSelecionados][0];
+
+        const monstro = obterTodosMonstros().find(
+            (m) => String(m.id) === id
+        );
+
+        elementos.monsterFilterSummary.textContent = monstro
+            ? monstro.name
+            : "1 criatura selecionada";
+
+    } else {
+        elementos.monsterFilterSummary.textContent =
+            `${total} criaturas selecionadas`;
+    }
+
+    elementos.monsterFilterButton.setAttribute(
+        "aria-expanded",
+        String(!elementos.monsterFilterOptions.hidden)
+    );
+}
+
+function alternarFiltroMonstros() {
+    elementos.monsterFilterOptions.hidden =
+        !elementos.monsterFilterOptions.hidden;
+
+    elementos.monsterFilterButton.setAttribute(
+        "aria-expanded",
+        String(!elementos.monsterFilterOptions.hidden)
+    );
 }
 
 function criarTagMonstro(monstro) {
@@ -178,6 +255,82 @@ function criarTagMonstro(monstro) {
     tag.title = monstro.name;
 
     return tag;
+}
+
+function criarListaMonstros(item, monstros) {
+    const area = document.createElement("div");
+    area.className = "monster-list-wrap";
+
+    const lista = document.createElement("div");
+    lista.className = "monster-list";
+
+    const nomesCompletos = monstros
+        .map((monstro) => monstro.name)
+        .join(", ");
+
+    lista.title = nomesCompletos || "Não informado";
+
+    if (monstros.length === 0) {
+        const semMonstro = document.createElement("span");
+
+        semMonstro.className = "monster-tag";
+        semMonstro.textContent = "Não informado";
+
+        lista.appendChild(semMonstro);
+        area.appendChild(lista);
+
+        return area;
+    }
+
+    const expandido = document.createElement("div");
+    expandido.className = "monster-list-expanded";
+    expandido.hidden = true;
+
+    const compactos = monstros.slice(0, LIMITE_MONSTROS_VISIVEIS);
+
+    for (const monstro of compactos) {
+        lista.appendChild(criarTagMonstro(monstro));
+    }
+
+    for (const monstro of monstros) {
+        expandido.appendChild(criarTagMonstro(monstro));
+    }
+
+    if (monstros.length > LIMITE_MONSTROS_VISIVEIS) {
+        const botao = document.createElement("button");
+
+        botao.type = "button";
+        botao.className = "monster-expand-button";
+
+        botao.textContent =
+            `+${monstros.length - LIMITE_MONSTROS_VISIVEIS} monstros`;
+
+        botao.setAttribute("aria-expanded", "false");
+        botao.title = `Ver todos: ${nomesCompletos}`;
+
+        botao.addEventListener("click", () => {
+            const estaExpandido = !expandido.hidden;
+
+            expandido.hidden = estaExpandido;
+            lista.hidden = !estaExpandido;
+
+            botao.textContent = estaExpandido
+                ? `+${monstros.length - LIMITE_MONSTROS_VISIVEIS} monstros`
+                : "Mostrar menos";
+
+            botao.setAttribute(
+                "aria-expanded",
+                String(!estaExpandido)
+            );
+        });
+
+        area.append(lista, botao, expandido);
+
+    } else {
+        area.appendChild(lista);
+    }
+
+    return area;
 }
 
 function criarCartao(item) {
@@ -201,18 +354,25 @@ function criarCartao(item) {
 
             fallback.className = "item-image-fallback";
             fallback.textContent = "✦";
-            fallback.setAttribute("aria-label", "Imagem indisponível");
+            fallback.setAttribute(
+                "aria-label",
+                "Imagem indisponível"
+            );
 
             imagem.replaceWith(fallback);
         }, { once: true });
 
         areaImagem.appendChild(imagem);
+
     } else {
         const fallback = document.createElement("div");
 
         fallback.className = "item-image-fallback";
         fallback.textContent = "✦";
-        fallback.setAttribute("aria-label", "Imagem indisponível");
+        fallback.setAttribute(
+            "aria-label",
+            "Imagem indisponível"
+        );
 
         areaImagem.appendChild(fallback);
     }
@@ -221,12 +381,13 @@ function criarCartao(item) {
     conteudo.className = "item-content";
 
     const nome = document.createElement("h3");
+
     nome.className = "item-name";
     nome.textContent = item.name;
     nome.title = item.name;
 
     if (item.source_url) {
-        nome.style.cursor = "pointer";
+        nome.classList.add("item-name-link");
         nome.title = `${item.name} — abrir página de origem`;
 
         nome.addEventListener("click", () => {
@@ -245,31 +406,10 @@ function criarCartao(item) {
     rotulo.className = "drop-label";
     rotulo.textContent = "Drop de";
 
-    const listaMonstros = document.createElement("div");
-    listaMonstros.className = "monster-list";
-
     const monstros = obterMonstros(item);
+    const listaMonstros = criarListaMonstros(item, monstros);
 
-    if (monstros.length > 0) {
-        for (const monstro of monstros) {
-            listaMonstros.appendChild(criarTagMonstro(monstro));
-        }
-    } else {
-        const semMonstro = document.createElement("span");
-
-        semMonstro.className = "monster-tag";
-        semMonstro.textContent = "Não informado";
-
-        listaMonstros.appendChild(semMonstro);
-    }
-
-    conteudo.append(
-        nome,
-        divisor,
-        rotulo,
-        listaMonstros
-    );
-
+    conteudo.append(nome, divisor, rotulo, listaMonstros);
     cartao.append(areaImagem, conteudo);
 
     return cartao;
@@ -281,7 +421,7 @@ function renderizarItens() {
     }
 
     const pesquisa = normalizar(elementos.searchInput.value);
-    const monstroSelecionado = elementos.monsterFilter.value;
+    const selecionados = new Set(monstrosSelecionados);
 
     const filtrados = itens.filter((item) => {
         const nomeItem = normalizar(item.name);
@@ -294,11 +434,11 @@ function renderizarItens() {
                 normalizar(monstro.name).includes(pesquisa)
             );
 
+        // Lógica OU: mostra drops de qualquer monstro selecionado.
         const correspondeMonstro =
-            !monstroSelecionado ||
-            monstros.some(
-                (monstro) =>
-                    String(monstro.id) === monstroSelecionado
+            selecionados.size === 0 ||
+            monstros.some((monstro) =>
+                selecionados.has(String(monstro.id))
             );
 
         return correspondePesquisa && correspondeMonstro;
@@ -330,8 +470,15 @@ function renderizarItens() {
 
 function limparFiltros() {
     elementos.searchInput.value = "";
-    elementos.monsterFilter.value = "";
+    monstrosSelecionados.clear();
 
+    elementos.monsterOptionsList
+        .querySelectorAll('input[type="checkbox"]')
+        .forEach((checkbox) => {
+            checkbox.checked = false;
+        });
+
+    atualizarResumoFiltro();
     renderizarItens();
 }
 
@@ -340,14 +487,54 @@ elementos.searchInput.addEventListener(
     renderizarItens
 );
 
-elementos.monsterFilter.addEventListener(
-    "change",
-    renderizarItens
+elementos.monsterFilterButton.addEventListener(
+    "click",
+    alternarFiltroMonstros
 );
+
+elementos.clearMonsterSelection.addEventListener("click", () => {
+    monstrosSelecionados.clear();
+
+    elementos.monsterOptionsList
+        .querySelectorAll('input[type="checkbox"]')
+        .forEach((checkbox) => {
+            checkbox.checked = false;
+        });
+
+    atualizarResumoFiltro();
+    renderizarItens();
+});
 
 elementos.clearFilters.addEventListener(
     "click",
     limparFiltros
 );
+
+document.addEventListener("click", (evento) => {
+    if (!elementos.monsterFilter.contains(evento.target)) {
+        elementos.monsterFilterOptions.hidden = true;
+
+        elementos.monsterFilterButton.setAttribute(
+            "aria-expanded",
+            "false"
+        );
+    }
+});
+
+document.addEventListener("keydown", (evento) => {
+    if (
+        evento.key === "Escape" &&
+        !elementos.monsterFilterOptions.hidden
+    ) {
+        elementos.monsterFilterOptions.hidden = true;
+
+        elementos.monsterFilterButton.setAttribute(
+            "aria-expanded",
+            "false"
+        );
+
+        elementos.monsterFilterButton.focus();
+    }
+});
 
 carregarItens();
